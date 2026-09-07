@@ -1,3 +1,5 @@
+<img src="brands/icon.png" width="96" align="right" alt="Instinct icon" />
+
 # Instinct 🧠
 
 One button. It knows what you meant.
