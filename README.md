@@ -91,7 +91,8 @@ Set later under **Configure**:
 | `min_score` | `1.0` | Minimum score to suggest anything |
 | `auto_execute_confidence` | `0.9` | Confirm-rate to stop asking |
 | `auto_execute_min_samples` | `8` | Min confirmations before auto-acting |
-| `manual_only` | `off` | Learn only from person-triggered changes (HA context `user_id`); skips automation/script **and** physical-switch changes |
+| `manual_only` | `off` | Learn only from person-triggered changes (HA context `user_id`); skips automation/script **and** physical-switch changes. Uses live capture (warms up from install) |
+| `exclude_reactive` | `off` | Drop reactive automation/script chains (context `parent_id`); keeps app/Apple Home/physical/time-based. Uses live capture (warms up from install) |
 | `multi_action` | `off` | Confirm & run the top-N context actions as one batch (single ✅ does all) |
 | `max_actions` | `3` | Cap on actions per press when multi-action is on |
 | `domains` | light, switch, fan, cover, media_player | Controllable domains |
@@ -104,11 +105,26 @@ Set later under **Configure**:
   just does it, showing "Did it: Turn off Hall Light."
 - Wrong guess? Tap ❌ and it learns this context isn't that action.
 
+## Two data sources
+
+- **Default (no source filter):** scoring reads 30 days of **recorder history** —
+  full coverage from day one.
+- **Source filters (`manual_only` / `exclude_reactive`):** these need reliable
+  per-change context, which recorder history doesn't expose. So Instinct keeps
+  its own **live observation log** (every candidate change + its context) and
+  scores from that when a filter is on. Tradeoff: filtered modes **warm up from
+  install time** rather than using back-history.
+
+> Why: an action's source (person vs. automation vs. Apple Home) only lives in
+> HA's *live* context. Apple Home / HomeKit actions in particular arrive with no
+> `user_id` and no `parent_id`, so they can't be singled out — but reactive
+> automations (which carry a `parent_id`) can be excluded.
+
 ## Data & privacy
 
-Everything runs locally. The learned feedback lives in `instinct.db` in your HA
-config folder — it is **not** inside `custom_components/`, so HACS updates never
-wipe your learning. No data leaves your instance.
+Everything runs locally. The learned feedback and observation log live in
+`instinct.db` in your HA config folder — **not** inside `custom_components/`, so
+HACS updates never wipe your learning. No data leaves your instance.
 
 ## Roadmap / ideas
 

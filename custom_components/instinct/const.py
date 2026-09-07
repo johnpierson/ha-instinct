@@ -19,6 +19,7 @@ CONF_EXCLUDE_ENTITIES = "exclude_entities"
 CONF_MULTI_ACTION = "multi_action"
 CONF_MAX_ACTIONS = "max_actions"
 CONF_MANUAL_ONLY = "manual_only"
+CONF_EXCLUDE_REACTIVE = "exclude_reactive"
 
 # Defaults
 DEFAULT_HISTORY_DAYS = 30
@@ -36,6 +37,10 @@ DEFAULT_MAX_ACTIONS = 3
 # a user_id). Excludes automation/script-driven changes. Note: physical switch
 # presses also lack a user_id, so they're excluded too. Off by default.
 DEFAULT_MANUAL_ONLY = False
+# Exclude reactive automation/script chains (context has a parent_id). Uses the
+# live-captured observations log (recorder history can't be filtered by context
+# reliably). Opt-in; warms up from install time. Off by default.
+DEFAULT_EXCLUDE_REACTIVE = False
 
 # Event the engine reacts to (fired by the webhook, the service, or you).
 EVENT_TRIGGER = "instinct_trigger"

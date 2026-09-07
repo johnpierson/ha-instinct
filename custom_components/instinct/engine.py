@@ -26,6 +26,7 @@ from .const import (
     CONF_AUTO_MIN_SAMPLES,
     CONF_DOMAINS,
     CONF_EXCLUDE_ENTITIES,
+    CONF_EXCLUDE_REACTIVE,
     CONF_HISTORY_DAYS,
     CONF_MANUAL_ONLY,
     CONF_MAX_ACTIONS,
@@ -37,6 +38,7 @@ from .const import (
     DEFAULT_AUTO_MIN_SAMPLES,
     DEFAULT_DOMAINS,
     DEFAULT_EXCLUDE_ENTITIES,
+    DEFAULT_EXCLUDE_REACTIVE,
     DEFAULT_HISTORY_DAYS,
     DEFAULT_MANUAL_ONLY,
     DEFAULT_MAX_ACTIONS,
@@ -78,6 +80,8 @@ class InstinctEngine:
         self._pending: dict[str, list[Candidate]] = {}
         # active diagnostic listener unsubscribe, if any
         self._debug_unsub = None
+        # always-on observation capture unsubscribe
+        self._obs_unsub = None
 
     # ------------------------------------------------------------- config
     def _opt(self, key: str, default):
@@ -97,6 +101,51 @@ class InstinctEngine:
     # ------------------------------------------------------------- lifecycle
     async def async_setup(self) -> None:
         await self.hass.async_add_executor_job(self._init_db)
+        self._start_observing()
+
+    def _start_observing(self) -> None:
+        """Always-on: log every candidate state change with its live context."""
+        from homeassistant.const import EVENT_STATE_CHANGED
+
+        @callback
+        def _on_change(event) -> None:
+            eid = event.data.get("entity_id", "")
+            domains = self._opt(CONF_DOMAINS, DEFAULT_DOMAINS)
+            excludes = self._opt(CONF_EXCLUDE_ENTITIES, DEFAULT_EXCLUDE_ENTITIES)
+            if eid.split(".", 1)[0] not in domains or self._excluded(eid, excludes):
+                return
+            new = event.data.get("new_state")
+            old = event.data.get("old_state")
+            if new is None:
+                return
+            service = self._infer_service(old.state if old else "", new.state)
+            if service is None:
+                return
+            ctx = getattr(new, "context", None)
+            has_user = 1 if getattr(ctx, "user_id", None) else 0
+            has_parent = 1 if getattr(ctx, "parent_id", None) else 0
+            ts = new.last_changed.timestamp()
+            self.hass.async_add_executor_job(
+                self._insert_obs, ts, eid, service, has_user, has_parent
+            )
+
+        self._obs_unsub = self.hass.bus.async_listen(EVENT_STATE_CHANGED, _on_change)
+
+    def _insert_obs(self, ts, eid, service, has_user, has_parent) -> None:
+        con = sqlite3.connect(self.db_path)
+        con.execute(
+            "INSERT INTO observations VALUES (?,?,?,?,?)",
+            (ts, eid, service, has_user, has_parent),
+        )
+        con.commit()
+        con.close()
+
+    def async_unload(self) -> None:
+        """Stop all listeners on entry unload."""
+        self.async_stop_debug()
+        if self._obs_unsub is not None:
+            self._obs_unsub()
+            self._obs_unsub = None
 
     def _init_db(self) -> None:
         os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
@@ -111,6 +160,22 @@ class InstinctEngine:
                 outcome     TEXT
             )
             """
+        )
+        # Live-captured observations. Context (user_id/parent_id) is reliable
+        # here (unlike recorder history), so source filters read from this.
+        con.execute(
+            """
+            CREATE TABLE IF NOT EXISTS observations (
+                ts          REAL,
+                entity_id   TEXT,
+                service     TEXT,
+                has_user    INTEGER,
+                has_parent  INTEGER
+            )
+            """
+        )
+        con.execute(
+            "CREATE INDEX IF NOT EXISTS ix_obs_ts ON observations (ts)"
         )
         con.commit()
         con.close()
@@ -228,15 +293,23 @@ class InstinctEngine:
         cur_dow = now.weekday()
         is_weekend = cur_dow >= 5
 
-        entities = self._candidate_entities()
-        transitions = await self._get_history(entities, start, now)
+        manual_only = bool(self._opt(CONF_MANUAL_ONLY, DEFAULT_MANUAL_ONLY))
+        exclude_reactive = bool(
+            self._opt(CONF_EXCLUDE_REACTIVE, DEFAULT_EXCLUDE_REACTIVE)
+        )
+
+        # Source filters need reliable context -> use the live observations log.
+        # Without a filter, use recorder history for full day-one coverage.
+        if manual_only or exclude_reactive:
+            events = await self._get_observations(
+                start, manual_only, exclude_reactive
+            )
+        else:
+            entities = self._candidate_entities()
+            events = await self._get_history(entities, start, now)
 
         scores: dict[str, Candidate] = {}
-        for entity_id, changed_at, from_s, to_s in transitions:
-            service = self._infer_service(from_s, to_s)
-            if service is None:
-                continue
-
+        for entity_id, changed_at, service in events:
             minutes_off = self._minutes_apart(changed_at, now)
             if minutes_off > window:
                 continue
@@ -379,7 +452,11 @@ class InstinctEngine:
 
     # --------------------------------------------------------- history/DB io
     async def _get_history(self, entities, start, end):
-        """Return [(entity_id, local_dt, from_state, to_state), ...]."""
+        """Recorder-history events as [(entity_id, local_dt, service), ...].
+
+        Unfiltered — recorder history can't reliably surface context, so source
+        filters use _get_observations instead.
+        """
         if not entities:
             return []
 
@@ -402,8 +479,6 @@ class InstinctEngine:
                 no_attributes=True,
             )
 
-        manual_only = bool(self._opt(CONF_MANUAL_ONLY, DEFAULT_MANUAL_ONLY))
-
         data = await get_instance(self.hass).async_add_executor_job(_query)
         out = []
         for entity_id, states in (data or {}).items():
@@ -417,20 +492,42 @@ class InstinctEngine:
                 # (also tz-aware) doesn't mix naive/aware datetimes.
                 local = dt_util.as_local(lc)
                 if prev is not None and state != prev:
-                    # Manual-only: keep changes a person triggered (context has
-                    # a user_id). Automation/script changes (and physical switch
-                    # presses) have no user_id and are skipped.
-                    if manual_only and not self._was_manual(st):
-                        prev = state
-                        continue
-                    out.append((entity_id, local, prev, state))
+                    service = self._infer_service(prev, state)
+                    if service is not None:
+                        out.append((entity_id, local, service))
                 prev = state
         return out
 
-    @staticmethod
-    def _was_manual(state) -> bool:
-        ctx = getattr(state, "context", None)
-        return bool(ctx and getattr(ctx, "user_id", None))
+    async def _get_observations(self, start, manual_only, exclude_reactive):
+        """Live-captured events as [(entity_id, local_dt, service), ...].
+
+        Context here is reliable, so we can filter by source:
+          manual_only     -> keep only has_user=1 (a person acted in HA app/UI)
+          exclude_reactive-> drop has_parent=1 (reactive automation/script chain)
+        """
+        start_ts = start.timestamp()
+
+        def _query():
+            sql = "SELECT entity_id, ts, service FROM observations WHERE ts >= ?"
+            params: list = [start_ts]
+            if manual_only:
+                sql += " AND has_user = 1"
+            if exclude_reactive:
+                sql += " AND has_parent = 0"
+            con = sqlite3.connect(self.db_path)
+            rows = con.execute(sql, params).fetchall()
+            # Opportunistic prune of anything older than the window.
+            con.execute("DELETE FROM observations WHERE ts < ?", (start_ts,))
+            con.commit()
+            con.close()
+            return rows
+
+        rows = await self.hass.async_add_executor_job(_query)
+        out = []
+        for entity_id, ts, service in rows:
+            local = dt_util.as_local(dt_util.utc_from_timestamp(ts))
+            out.append((entity_id, local, service))
+        return out
 
     def _feedback_rows(self, ctx: str, entity_id: str, service: str):
         con = sqlite3.connect(self.db_path)

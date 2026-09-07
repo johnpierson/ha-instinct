@@ -101,7 +101,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         unsub()
     engine = data.pop(entry.entry_id, None)
     if engine is not None:
-        engine.async_stop_debug()
+        engine.async_unload()
 
     if not any(k for k in data if not k.endswith("_unsubs")):
         hass.services.async_remove(DOMAIN, SERVICE_TRIGGER)
