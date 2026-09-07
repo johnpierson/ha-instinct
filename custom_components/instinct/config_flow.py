@@ -20,7 +20,9 @@ from .const import (
     CONF_DOMAINS,
     CONF_EXCLUDE_ENTITIES,
     CONF_HISTORY_DAYS,
+    CONF_MAX_ACTIONS,
     CONF_MIN_SCORE,
+    CONF_MULTI_ACTION,
     CONF_NOTIFY_SERVICE,
     CONF_TIME_WINDOW_MINUTES,
     CONF_WEBHOOK_ID,
@@ -28,7 +30,9 @@ from .const import (
     DEFAULT_AUTO_MIN_SAMPLES,
     DEFAULT_DOMAINS,
     DEFAULT_HISTORY_DAYS,
+    DEFAULT_MAX_ACTIONS,
     DEFAULT_MIN_SCORE,
+    DEFAULT_MULTI_ACTION,
     DEFAULT_TIME_WINDOW_MINUTES,
     DOMAIN,
 )
@@ -119,6 +123,14 @@ class InstinctOptionsFlow(OptionsFlow):
                         CONF_AUTO_MIN_SAMPLES, DEFAULT_AUTO_MIN_SAMPLES
                     ),
                 ): vol.All(int, vol.Range(min=1, max=100)),
+                vol.Optional(
+                    CONF_MULTI_ACTION,
+                    default=opts.get(CONF_MULTI_ACTION, DEFAULT_MULTI_ACTION),
+                ): bool,
+                vol.Optional(
+                    CONF_MAX_ACTIONS,
+                    default=opts.get(CONF_MAX_ACTIONS, DEFAULT_MAX_ACTIONS),
+                ): vol.All(int, vol.Range(min=1, max=10)),
                 vol.Optional(
                     CONF_DOMAINS,
                     default=", ".join(opts.get(CONF_DOMAINS, DEFAULT_DOMAINS)),

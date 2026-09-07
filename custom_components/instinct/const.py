@@ -16,6 +16,8 @@ CONF_AUTO_CONFIDENCE = "auto_execute_confidence"
 CONF_AUTO_MIN_SAMPLES = "auto_execute_min_samples"
 CONF_DOMAINS = "domains"
 CONF_EXCLUDE_ENTITIES = "exclude_entities"
+CONF_MULTI_ACTION = "multi_action"
+CONF_MAX_ACTIONS = "max_actions"
 
 # Defaults
 DEFAULT_HISTORY_DAYS = 30
@@ -25,6 +27,10 @@ DEFAULT_AUTO_CONFIDENCE = 0.9
 DEFAULT_AUTO_MIN_SAMPLES = 8
 DEFAULT_DOMAINS = ["light", "switch", "fan", "cover", "media_player"]
 DEFAULT_EXCLUDE_ENTITIES: list[str] = []
+# Multi-action: one press can confirm & run the top-N context actions as a batch
+# (single ✅ does all). Off by default -> classic single-action behavior.
+DEFAULT_MULTI_ACTION = False
+DEFAULT_MAX_ACTIONS = 3
 
 # Event the engine reacts to (fired by the webhook, the service, or you).
 EVENT_TRIGGER = "instinct_trigger"

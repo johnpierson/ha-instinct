@@ -91,6 +91,8 @@ Set later under **Configure**:
 | `min_score` | `1.0` | Minimum score to suggest anything |
 | `auto_execute_confidence` | `0.9` | Confirm-rate to stop asking |
 | `auto_execute_min_samples` | `8` | Min confirmations before auto-acting |
+| `multi_action` | `off` | Confirm & run the top-N context actions as one batch (single ✅ does all) |
+| `max_actions` | `3` | Cap on actions per press when multi-action is on |
 | `domains` | light, switch, fan, cover, media_player | Controllable domains |
 | `exclude_entities` | — | Never touch (exact id or `prefix*`) |
 

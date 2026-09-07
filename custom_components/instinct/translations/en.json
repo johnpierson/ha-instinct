@@ -26,6 +26,8 @@
           "min_score": "Minimum score to suggest",
           "auto_execute_confidence": "Auto-execute confidence (0-1)",
           "auto_execute_min_samples": "Auto-execute min samples",
+          "multi_action": "Multi-action: confirm & run the top-N at once",
+          "max_actions": "Max actions per press (multi-action)",
           "domains": "Controllable domains (comma-separated)",
           "exclude_entities": "Excluded entities (comma-separated, prefix* ok)"
         }

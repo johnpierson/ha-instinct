@@ -27,7 +27,9 @@ from .const import (
     CONF_DOMAINS,
     CONF_EXCLUDE_ENTITIES,
     CONF_HISTORY_DAYS,
+    CONF_MAX_ACTIONS,
     CONF_MIN_SCORE,
+    CONF_MULTI_ACTION,
     CONF_TIME_WINDOW_MINUTES,
     DB_FILENAME,
     DEFAULT_AUTO_CONFIDENCE,
@@ -35,7 +37,9 @@ from .const import (
     DEFAULT_DOMAINS,
     DEFAULT_EXCLUDE_ENTITIES,
     DEFAULT_HISTORY_DAYS,
+    DEFAULT_MAX_ACTIONS,
     DEFAULT_MIN_SCORE,
+    DEFAULT_MULTI_ACTION,
     DEFAULT_TIME_WINDOW_MINUTES,
     OFF_STATES,
     ON_STATES,
@@ -117,8 +121,21 @@ class InstinctEngine:
             await self._notify_plain("Instinct", "Nothing obvious to do right now.")
             return
 
-        best = candidates[0]
         ctx = self._context_key(now)
+
+        # Multi-action: confirm & run the top-N context actions as one batch.
+        if self._opt(CONF_MULTI_ACTION, DEFAULT_MULTI_ACTION):
+            max_n = int(self._opt(CONF_MAX_ACTIONS, DEFAULT_MAX_ACTIONS))
+            batch = candidates[: max(1, max_n)]
+            _LOGGER.info(
+                "Instinct multi-action batch (%d): %s",
+                len(batch), [c.key for c in batch],
+            )
+            await self._ask(batch, ctx)
+            return
+
+        # Single-action (default).
+        best = candidates[0]
         conf, samples = await self._confidence(ctx, best)
         best.samples = samples
 
@@ -136,7 +153,7 @@ class InstinctEngine:
             await self._notify_plain("Instinct", f"Did it: {self._pretty(best)}.")
             return
 
-        await self._ask(best, ctx)
+        await self._ask([best], ctx)
 
     # --------------------------------------------------------------- scoring
     async def _score_candidates(self, now: datetime) -> list[Candidate]:
@@ -222,24 +239,27 @@ class InstinctEngine:
         _LOGGER.info("Instinct executed %s on %s", cand.service, cand.entity_id)
 
     # --------------------------------------------------------- notifications
-    async def _ask(self, cand: Candidate, ctx: str) -> None:
+    async def _ask(self, cands: list[Candidate], ctx: str) -> None:
+        """Ask to confirm a batch (single-action passes a list of one)."""
         service = self.notify_service
         if not service:
             _LOGGER.warning("No notify_service configured; executing without confirm")
-            await self._execute(cand)
-            await self._record(ctx, cand, "auto")
+            for cand in cands:
+                await self._execute(cand)
+                await self._record(ctx, cand, "auto")
             return
 
         tag = f"instinct_{int(time.time())}"
-        self._pending[tag] = cand
+        self._pending[tag] = cands
 
+        message = self._pretty_batch(cands)
         domain, name = service.split(".", 1) if "." in service else ("notify", service)
         await self.hass.services.async_call(
             domain,
             name,
             {
                 "title": "Instinct",
-                "message": f"{self._pretty(cand)}?",
+                "message": message,
                 "data": {
                     "tag": tag,
                     "actions": [
@@ -250,7 +270,7 @@ class InstinctEngine:
             },
             blocking=False,
         )
-        _LOGGER.info("Instinct asked: %s (tag=%s)", self._pretty(cand), tag)
+        _LOGGER.info("Instinct asked: %s (tag=%s)", message, tag)
 
         # Expire the pending suggestion after 2 minutes.
         async def _expire(_now):
@@ -266,20 +286,23 @@ class InstinctEngine:
         if "::" not in action:
             return
         verb, tag = action.split("::", 1)
-        cand = self._pending.pop(tag, None)
-        if cand is None:
+        cands = self._pending.pop(tag, None)
+        if cands is None:
             return
-        self.hass.async_create_task(self._resolve(verb, cand))
+        self.hass.async_create_task(self._resolve(verb, cands))
 
-    async def _resolve(self, verb: str, cand: Candidate) -> None:
+    async def _resolve(self, verb: str, cands: list[Candidate]) -> None:
         ctx = self._context_key(dt_util.now())
         if verb == "INSTINCT_YES":
-            await self._execute(cand)
-            await self._record(ctx, cand, "confirm")
-            await self._notify_plain("Instinct", f"Done: {self._pretty(cand)}.")
+            for cand in cands:
+                await self._execute(cand)
+                await self._record(ctx, cand, "confirm")
+            done = "; ".join(self._pretty(c) for c in cands)
+            await self._notify_plain("Instinct", f"Done: {done}.")
         elif verb == "INSTINCT_NO":
-            await self._record(ctx, cand, "reject")
-            _LOGGER.info("Instinct rejected: %s", self._pretty(cand))
+            for cand in cands:
+                await self._record(ctx, cand, "reject")
+            _LOGGER.info("Instinct rejected: %s", self._pretty_batch(cands))
 
     async def _notify_plain(self, title: str, message: str) -> None:
         service = self.notify_service
@@ -417,3 +440,10 @@ class InstinctEngine:
         )
         verb = "Turn off" if cand.service == "turn_off" else "Turn on"
         return f"{verb} {name}"
+
+    def _pretty_batch(self, cands: list[Candidate]) -> str:
+        """One line for one action; a numbered list ending in '?' for many."""
+        if len(cands) == 1:
+            return f"{self._pretty(cands[0])}?"
+        items = "; ".join(self._pretty(c) for c in cands)
+        return f"Do {len(cands)} things? {items}"
