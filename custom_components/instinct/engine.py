@@ -325,7 +325,9 @@ class InstinctEngine:
                 lc = getattr(st, "last_changed", None)
                 if state is None or lc is None:
                     continue
-                local = dt_util.as_local(lc).replace(tzinfo=None)
+                # Keep tz-aware local time so arithmetic with dt_util.now()
+                # (also tz-aware) doesn't mix naive/aware datetimes.
+                local = dt_util.as_local(lc)
                 if prev is not None and state != prev:
                     out.append((entity_id, local, prev, state))
                 prev = state
