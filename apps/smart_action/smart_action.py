@@ -77,8 +77,11 @@ class SmartAction(hass.Hass):
     def initialize(self):
         self.cfg = {**DEFAULTS, **self.args}
 
+        # Store the learned feedback DB inside a `data/` subdir. HACS is told
+        # (via hacs.json `persistent_directory`) to preserve this folder across
+        # updates, so your learning survives upgrades.
         db_path = self.cfg["db_path"] or os.path.join(
-            os.path.dirname(__file__), "smart_action.db"
+            os.path.dirname(__file__), "data", "smart_action.db"
         )
         self.db_path = db_path
         self._init_db()
@@ -97,6 +100,7 @@ class SmartAction(hass.Hass):
         self.log("Smart Action ready. Listening for smart_action_trigger.")
 
     def _init_db(self):
+        os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
         con = sqlite3.connect(self.db_path)
         con.execute(
             """

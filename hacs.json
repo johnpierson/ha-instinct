@@ -1,0 +1,6 @@
+{
+  "name": "Smart Action",
+  "render_readme": true,
+  "persistent_directory": "data",
+  "homeassistant": "2024.1.0"
+}

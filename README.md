@@ -45,14 +45,28 @@ Apple Shortcut ──HTTP POST──► HA Webhook
 
 ## Install (about 15 minutes)
 
-**Prereqs:** Home Assistant with the **Recorder** enabled (default) and the
-**AppDaemon** add-on installed (Settings → Add-ons → Add-on Store → AppDaemon).
+**Prereqs:** Home Assistant with the **Recorder** enabled (default), the
+**AppDaemon** add-on installed (Settings → Add-ons → Add-on Store → AppDaemon),
+and **HACS** if you want the one-click install path below.
+
+### Option A — HACS (recommended)
+
+1. In HACS, enable AppDaemon discovery: **HACS → ⋮ → Custom repositories**, or
+   turn on AppDaemon apps in HACS settings (they're hidden by default).
+2. **Custom repositories → Add**: URL `https://github.com/johnpierson/ha-smart-action`,
+   category **AppDaemon**.
+3. Find **Smart Action** in HACS → **Download**. HACS copies it into
+   `.../appdaemon/apps/smart_action/`. Your learned data lives in a `data/`
+   subfolder that HACS preserves across updates.
+4. Continue at **step 2** below (configure `apps.yaml`).
+
+### Option B — Manual
 
 1. **Drop in the app.**
-   Copy `appdaemon/apps/smart_action/` into your AppDaemon `apps/` folder.
+   Copy `apps/smart_action/` into your AppDaemon `apps/` folder.
 
 2. **Configure it.**
-   Merge `appdaemon/apps/apps.yaml` into your AppDaemon `apps.yaml`. Set
+   Merge `examples/apps.yaml` into your AppDaemon `apps.yaml`. Set
    `notify_service` to your iOS device (Developer Tools → Actions → search
    `notify`, e.g. `notify/mobile_app_johns_iphone`).
 
@@ -93,10 +107,12 @@ All keys live in `apps.yaml`:
 ## Layout
 
 ```
-appdaemon/apps/smart_action/smart_action.py   # the brain
-appdaemon/apps/apps.yaml                       # config
-homeassistant/automation.yaml                  # webhook → event
-shortcut/SHORTCUT.md                           # Apple Watch wiring
+apps/smart_action/smart_action.py   # the brain (HACS-managed)
+apps/smart_action/data/             # learned DB, preserved across updates
+hacs.json                           # HACS metadata
+examples/apps.yaml                  # config to merge into your apps.yaml
+homeassistant/automation.yaml       # webhook → event
+shortcut/SHORTCUT.md                # Apple Watch wiring
 ```
 
 ## Safety notes
