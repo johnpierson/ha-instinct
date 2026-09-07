@@ -1,0 +1,28 @@
+# Home Assistant automation that turns the Apple Watch button press
+# (delivered via a webhook) into the `smart_action_trigger` event that the
+# AppDaemon app listens for.
+#
+# Paste into your automations.yaml, or recreate in the UI:
+#   Trigger: Webhook
+#   Action:  Fire event  smart_action_trigger
+#
+# The webhook_id below is your secret URL. Change it to something random and
+# keep it private — anyone with the URL can fire your button.
+
+- id: smart_action_webhook
+  alias: "Smart Action - webhook trigger"
+  description: "Apple Watch Action Button -> fire smart_action_trigger event"
+  mode: single
+  trigger:
+    - platform: webhook
+      webhook_id: smart-action-CHANGE-ME-to-a-long-random-string
+      # Allow calls from outside your LAN only if you use HA Cloud / a reverse
+      # proxy. If your watch is always on Wi-Fi/VPN at home, keep local_only.
+      local_only: false
+      allowed_methods:
+        - POST
+        - PUT
+  action:
+    - event: smart_action_trigger
+      event_data:
+        source: apple_watch

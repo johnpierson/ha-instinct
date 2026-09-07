@@ -1,0 +1,37 @@
+# Add this block to your AppDaemon apps.yaml
+# (usually /addon_configs/a0d7b954_appdaemon/apps/apps.yaml or
+#  /config/appdaemon/apps/apps.yaml depending on your install).
+
+smart_action:
+  module: smart_action.smart_action
+  class: SmartAction
+
+  # ---- REQUIRED: where confirmation prompts go -------------------------
+  # Your iOS mobile app notify service. Find it under Developer Tools ->
+  # Actions, search "notify". Use slash form here.
+  notify_service: notify/mobile_app_johns_iphone
+
+  # ---- Learning window -------------------------------------------------
+  history_days: 30
+  time_window_minutes: 60
+
+  # ---- Auto-execute thresholds ----------------------------------------
+  # Once a context bucket is this reliable (and has this many samples),
+  # the app stops asking and just acts.
+  auto_execute_confidence: 0.9
+  auto_execute_min_samples: 8
+
+  # ---- Safety ----------------------------------------------------------
+  min_score: 1.0
+  domains:
+    - light
+    - switch
+    - fan
+    - cover
+    - media_player
+    # - climate   # uncomment once you trust it
+
+  # Never touch these (exact id, or prefix ending in * ).
+  exclude_entities:
+    - light.always_on_sign
+    # - switch.server_*

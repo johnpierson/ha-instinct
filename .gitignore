@@ -1,0 +1,13 @@
+# Learned feedback database — local, per-install, don't commit.
+*.db
+smart_action.db
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Editor
+.DS_Store
+.vscode/
+.idea/
