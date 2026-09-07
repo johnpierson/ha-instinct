@@ -294,32 +294,36 @@ class InstinctEngine:
     # --------------------------------------------------------- history/DB io
     async def _get_history(self, entities, start, end):
         """Return [(entity_id, local_dt, from_state, to_state), ...]."""
+        if not entities:
+            return []
+
         from homeassistant.components.recorder import get_instance
         from homeassistant.components.recorder.history import (
-            state_changes_during_period,
+            get_significant_states,
         )
 
         def _query():
-            return state_changes_during_period(
+            # get_significant_states takes a list of entity_ids in one query
+            # and keeps real state-value changes (drops attribute-only churn).
+            return get_significant_states(
                 self.hass,
                 start,
                 end,
-                entity_id=None,
+                entity_ids=list(entities),
+                include_start_time_state=False,
+                significant_changes_only=True,
+                minimal_response=False,
+                no_attributes=True,
             )
 
-        # state_changes_during_period with entity_id=None returns all recorded
-        # entities; filter to our candidate set.
         data = await get_instance(self.hass).async_add_executor_job(_query)
-        wanted = set(entities)
         out = []
         for entity_id, states in (data or {}).items():
-            if entity_id not in wanted:
-                continue
             prev = None
             for st in states:
-                state = st.state
-                lc = st.last_changed
-                if lc is None:
+                state = getattr(st, "state", None)
+                lc = getattr(st, "last_changed", None)
+                if state is None or lc is None:
                     continue
                 local = dt_util.as_local(lc).replace(tzinfo=None)
                 if prev is not None and state != prev:
