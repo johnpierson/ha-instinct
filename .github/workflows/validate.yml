@@ -18,6 +18,12 @@ jobs:
   hacs:
     name: HACS
     runs-on: ubuntu-latest
+    # Informational only. The HACS store-validation action reads file contents
+    # via the GitHub API, which it can't do for a PRIVATE repo — so the
+    # hacs.json / manifest content checks report as invalid here even though
+    # they're valid (hassfest, which uses the local checkout, passes). This
+    # check only matters if you ever submit to the public HACS default store.
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: hacs/action@main
