@@ -74,8 +74,10 @@ class InstinctEngine:
         self.hass = hass
         self.entry = entry
         self.db_path = hass.config.path(DB_FILENAME)
-        # tag -> Candidate awaiting a confirm/reject
-        self._pending: dict[str, Candidate] = {}
+        # tag -> list[Candidate] awaiting a confirm/reject
+        self._pending: dict[str, list[Candidate]] = {}
+        # active diagnostic listener unsubscribe, if any
+        self._debug_unsub = None
 
     # ------------------------------------------------------------- config
     def _opt(self, key: str, default):
@@ -156,6 +158,65 @@ class InstinctEngine:
             return
 
         await self._ask([best], ctx)
+
+    # ------------------------------------------------------------- diagnostic
+    async def async_start_debug(self, seconds: int = 120) -> None:
+        """Live-log the context of candidate state changes for `seconds`.
+
+        Toggle something in Apple Home / the HA app / a physical switch while
+        this is on, then read the log lines tagged `INSTINCT-DEBUG` to see how
+        each source is attributed (user_id / parent_id / origin).
+        """
+        from homeassistant.const import EVENT_STATE_CHANGED
+        from homeassistant.helpers.event import async_call_later
+
+        # Restart cleanly if already capturing.
+        self.async_stop_debug()
+
+        domains = self._opt(CONF_DOMAINS, DEFAULT_DOMAINS)
+        excludes = self._opt(CONF_EXCLUDE_ENTITIES, DEFAULT_EXCLUDE_ENTITIES)
+
+        @callback
+        def _on_change(event) -> None:
+            eid = event.data.get("entity_id", "")
+            if eid.split(".", 1)[0] not in domains or self._excluded(eid, excludes):
+                return
+            new = event.data.get("new_state")
+            old = event.data.get("old_state")
+            if new is None:
+                return
+            new_s = new.state
+            old_s = old.state if old else None
+            if new_s == old_s:
+                return
+            ctx = getattr(new, "context", None)
+            _LOGGER.warning(
+                "INSTINCT-DEBUG %s: %s -> %s | user_id=%s parent_id=%s "
+                "ctx_id=%s origin=%s",
+                eid, old_s, new_s,
+                getattr(ctx, "user_id", None),
+                getattr(ctx, "parent_id", None),
+                getattr(ctx, "id", None),
+                getattr(event, "origin", None),
+            )
+
+        self._debug_unsub = self.hass.bus.async_listen(EVENT_STATE_CHANGED, _on_change)
+        _LOGGER.warning(
+            "INSTINCT-DEBUG capture ON for %ds — trigger something in Apple Home "
+            "now, then check the logs for INSTINCT-DEBUG lines.", seconds,
+        )
+
+        async def _stop(_now) -> None:
+            self.async_stop_debug()
+
+        async_call_later(self.hass, seconds, _stop)
+
+    @callback
+    def async_stop_debug(self) -> None:
+        if self._debug_unsub is not None:
+            self._debug_unsub()
+            self._debug_unsub = None
+            _LOGGER.warning("INSTINCT-DEBUG capture OFF.")
 
     # --------------------------------------------------------------- scoring
     async def _score_candidates(self, now: datetime) -> list[Candidate]:

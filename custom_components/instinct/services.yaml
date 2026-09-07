@@ -4,3 +4,21 @@ trigger:
     Ask Instinct to predict and perform (or confirm) the single most likely
     action for right now, based on your history. This is what the Apple Watch
     button ultimately calls.
+
+debug_context:
+  name: Debug context
+  description: >
+    Diagnostic: for a short window, log the context fingerprint (user_id /
+    parent_id / origin) of every candidate state change. Trigger something in
+    Apple Home / the HA app while it runs, then read the INSTINCT-DEBUG log
+    lines to see how each source is attributed.
+  fields:
+    seconds:
+      name: Seconds
+      description: How long to capture (default 120).
+      default: 120
+      selector:
+        number:
+          min: 10
+          max: 600
+          unit_of_measurement: s

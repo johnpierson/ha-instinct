@@ -45,6 +45,9 @@ EVENT_MOBILE_ACTION = "mobile_app_notification_action"
 
 # Service name: instinct.trigger
 SERVICE_TRIGGER = "trigger"
+# Diagnostic: instinct.debug_context — live-log the context fingerprint of
+# state changes so we can see how (e.g.) Apple Home actions are attributed.
+SERVICE_DEBUG_CONTEXT = "debug_context"
 
 # Where the learned feedback DB lives (config dir → survives HACS updates,
 # which only replace custom_components/instinct/).

@@ -22,6 +22,7 @@ from .const import (
     DOMAIN,
     EVENT_MOBILE_ACTION,
     EVENT_TRIGGER,
+    SERVICE_DEBUG_CONTEXT,
     SERVICE_TRIGGER,
 )
 from .engine import InstinctEngine
@@ -54,6 +55,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         await engine.async_handle_trigger()
 
     hass.services.async_register(DOMAIN, SERVICE_TRIGGER, _svc_trigger)
+
+    # --- service: instinct.debug_context (diagnostic) ---------------------
+    async def _svc_debug(call: ServiceCall) -> None:
+        seconds = int(call.data.get("seconds", 120))
+        await engine.async_start_debug(seconds)
+
+    hass.services.async_register(DOMAIN, SERVICE_DEBUG_CONTEXT, _svc_debug)
 
     # --- webhook ----------------------------------------------------------
     webhook_id = entry.data.get(CONF_WEBHOOK_ID)
@@ -91,10 +99,13 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     data = hass.data.get(DOMAIN, {})
     for unsub in data.pop(f"{entry.entry_id}_unsubs", []):
         unsub()
-    data.pop(entry.entry_id, None)
+    engine = data.pop(entry.entry_id, None)
+    if engine is not None:
+        engine.async_stop_debug()
 
     if not any(k for k in data if not k.endswith("_unsubs")):
         hass.services.async_remove(DOMAIN, SERVICE_TRIGGER)
+        hass.services.async_remove(DOMAIN, SERVICE_DEBUG_CONTEXT)
 
     return True
 
