@@ -20,6 +20,7 @@ from .const import (
     CONF_DOMAINS,
     CONF_EXCLUDE_ENTITIES,
     CONF_HISTORY_DAYS,
+    CONF_MANUAL_ONLY,
     CONF_MAX_ACTIONS,
     CONF_MIN_SCORE,
     CONF_MULTI_ACTION,
@@ -30,6 +31,7 @@ from .const import (
     DEFAULT_AUTO_MIN_SAMPLES,
     DEFAULT_DOMAINS,
     DEFAULT_HISTORY_DAYS,
+    DEFAULT_MANUAL_ONLY,
     DEFAULT_MAX_ACTIONS,
     DEFAULT_MIN_SCORE,
     DEFAULT_MULTI_ACTION,
@@ -123,6 +125,10 @@ class InstinctOptionsFlow(OptionsFlow):
                         CONF_AUTO_MIN_SAMPLES, DEFAULT_AUTO_MIN_SAMPLES
                     ),
                 ): vol.All(int, vol.Range(min=1, max=100)),
+                vol.Optional(
+                    CONF_MANUAL_ONLY,
+                    default=opts.get(CONF_MANUAL_ONLY, DEFAULT_MANUAL_ONLY),
+                ): bool,
                 vol.Optional(
                     CONF_MULTI_ACTION,
                     default=opts.get(CONF_MULTI_ACTION, DEFAULT_MULTI_ACTION),

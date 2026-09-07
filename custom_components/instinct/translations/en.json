@@ -26,6 +26,7 @@
           "min_score": "Minimum score to suggest",
           "auto_execute_confidence": "Auto-execute confidence (0-1)",
           "auto_execute_min_samples": "Auto-execute min samples",
+          "manual_only": "Learn only from manual (person-triggered) changes",
           "multi_action": "Multi-action: confirm & run the top-N at once",
           "max_actions": "Max actions per press (multi-action)",
           "domains": "Controllable domains (comma-separated)",

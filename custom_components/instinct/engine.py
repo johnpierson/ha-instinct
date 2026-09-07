@@ -27,6 +27,7 @@ from .const import (
     CONF_DOMAINS,
     CONF_EXCLUDE_ENTITIES,
     CONF_HISTORY_DAYS,
+    CONF_MANUAL_ONLY,
     CONF_MAX_ACTIONS,
     CONF_MIN_SCORE,
     CONF_MULTI_ACTION,
@@ -37,6 +38,7 @@ from .const import (
     DEFAULT_DOMAINS,
     DEFAULT_EXCLUDE_ENTITIES,
     DEFAULT_HISTORY_DAYS,
+    DEFAULT_MANUAL_ONLY,
     DEFAULT_MAX_ACTIONS,
     DEFAULT_MIN_SCORE,
     DEFAULT_MULTI_ACTION,
@@ -339,6 +341,8 @@ class InstinctEngine:
                 no_attributes=True,
             )
 
+        manual_only = bool(self._opt(CONF_MANUAL_ONLY, DEFAULT_MANUAL_ONLY))
+
         data = await get_instance(self.hass).async_add_executor_job(_query)
         out = []
         for entity_id, states in (data or {}).items():
@@ -352,9 +356,20 @@ class InstinctEngine:
                 # (also tz-aware) doesn't mix naive/aware datetimes.
                 local = dt_util.as_local(lc)
                 if prev is not None and state != prev:
+                    # Manual-only: keep changes a person triggered (context has
+                    # a user_id). Automation/script changes (and physical switch
+                    # presses) have no user_id and are skipped.
+                    if manual_only and not self._was_manual(st):
+                        prev = state
+                        continue
                     out.append((entity_id, local, prev, state))
                 prev = state
         return out
+
+    @staticmethod
+    def _was_manual(state) -> bool:
+        ctx = getattr(state, "context", None)
+        return bool(ctx and getattr(ctx, "user_id", None))
 
     def _feedback_rows(self, ctx: str, entity_id: str, service: str):
         con = sqlite3.connect(self.db_path)

@@ -18,6 +18,7 @@ CONF_DOMAINS = "domains"
 CONF_EXCLUDE_ENTITIES = "exclude_entities"
 CONF_MULTI_ACTION = "multi_action"
 CONF_MAX_ACTIONS = "max_actions"
+CONF_MANUAL_ONLY = "manual_only"
 
 # Defaults
 DEFAULT_HISTORY_DAYS = 30
@@ -31,6 +32,10 @@ DEFAULT_EXCLUDE_ENTITIES: list[str] = []
 # (single ✅ does all). Off by default -> classic single-action behavior.
 DEFAULT_MULTI_ACTION = False
 DEFAULT_MAX_ACTIONS = 3
+# Manual-only: learn only from state changes a person triggered (HA context has
+# a user_id). Excludes automation/script-driven changes. Note: physical switch
+# presses also lack a user_id, so they're excluded too. Off by default.
+DEFAULT_MANUAL_ONLY = False
 
 # Event the engine reacts to (fired by the webhook, the service, or you).
 EVENT_TRIGGER = "instinct_trigger"
