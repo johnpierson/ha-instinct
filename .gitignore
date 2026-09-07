@@ -1,6 +1,6 @@
 # Learned feedback database — local, per-install, don't commit.
 *.db
-smart_action.db
+instinct.db
 data/
 
 # Python

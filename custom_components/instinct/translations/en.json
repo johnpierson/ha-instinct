@@ -1,0 +1,35 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Instinct",
+        "description": "Instinct learns what you usually do and acts on one button press. Enter the notify service used for confirmation prompts (e.g. notify.mobile_app_your_iphone).",
+        "data": {
+          "notify_service": "Notify service"
+        }
+      }
+    },
+    "error": {
+      "invalid_notify": "Use dotted form, e.g. notify.mobile_app_your_iphone"
+    },
+    "abort": {
+      "already_configured": "Instinct is already set up."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Instinct options",
+        "data": {
+          "history_days": "History days to learn from",
+          "time_window_minutes": "Time-of-day window (minutes)",
+          "min_score": "Minimum score to suggest",
+          "auto_execute_confidence": "Auto-execute confidence (0-1)",
+          "auto_execute_min_samples": "Auto-execute min samples",
+          "domains": "Controllable domains (comma-separated)",
+          "exclude_entities": "Excluded entities (comma-separated, prefix* ok)"
+        }
+      }
+    }
+  }
+}

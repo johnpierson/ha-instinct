@@ -1,0 +1,6 @@
+trigger:
+  name: Trigger
+  description: >
+    Ask Instinct to predict and perform (or confirm) the single most likely
+    action for right now, based on your history. This is what the Apple Watch
+    button ultimately calls.
